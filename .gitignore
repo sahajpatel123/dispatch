@@ -1,0 +1,9 @@
+server/venv/
+server/.env
+server/tunnel_url.txt
+server/logs/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+phone-app/.expo/
