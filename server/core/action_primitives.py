@@ -292,6 +292,72 @@ def click_element(app_name: str, element_name: str):
     run_applescript(script)
 
 
+def get_app_context() -> dict:
+    """Intelligently determines what can be 'Teleported' to iPhone"""
+    active_app = get_active_window()
+    active_app_lower = active_app.lower()
+    
+    # 1. Handle Browsers (Safari/Chrome)
+    if any(x in active_app_lower for x in ["safari", "chrome", "browser"]):
+        script = '''
+        tell application "System Events"
+            set frontApp to first application process whose frontmost is true
+            set appName to name of frontApp
+            if appName contains "Safari" then
+                tell application "Safari" to return URL of front document
+            else if appName contains "Google Chrome" then
+                tell application "Google Chrome" to return URL of active tab of front window
+            end if
+        end tell
+        '''
+        url = run_applescript(script)
+        if url and url.startswith("http"):
+            return {"type": "url", "content": url, "app": active_app}
+
+    # 2. Handle Spotify
+    if "spotify" in active_app_lower:
+        url = run_applescript('tell application "Spotify" to return spotify url of current track')
+        return {"type": "url", "content": url, "app": "Spotify"}
+
+    # 3. Handle Apple Music (The 'Music' app)
+    if "music" in active_app_lower:
+        # Music app uses different AppleScript for URLs
+        script = 'tell application "Music" to return address of current track'
+        url = run_applescript(script)
+        # Note: Address is only available for library/streamed songs
+        if not url or "missing value" in url:
+            # Fallback to searching the song on Apple Music via URL scheme
+            artist = run_applescript('tell application "Music" to return artist of current track')
+            name = run_applescript('tell application "Music" to return name of current track')
+            url = f"https://music.apple.com/search?term={artist} {name}".replace(" ", "%20")
+        
+        return {"type": "url", "content": url, "app": "Music"}
+
+    # Default: Not compatible
+    return {"type": "unsupported", "content": None, "app": active_app}
+
+
+def ghost_click(percent_x: float, percent_y: float, click_type: str = "left"):
+    """
+    Super Premium Ghost Touch: Uses native AppleScript 'click at' coordinates.
+    Bypasses hardware event queue for instant, reliable response.
+    """
+    res = get_screen_resolution()
+    target_x = int(res[0] * (percent_x / 100))
+    target_y = int(res[1] * (percent_y / 100))
+    
+    # Native AppleScript click is the gold standard for remote control
+    if click_type == "right":
+        script = f'tell application "System Events" to click at {{{target_x}, {target_y}}} with secondary click'
+    else:
+        # Standard click (handles double clicks via rapid firing if needed)
+        script = f'tell application "System Events" to click at {{{target_x}, {target_y}}}'
+        if click_type == "double":
+            script = f'{script}\n{script}'
+            
+    run_applescript(script)
+
+
 # ─── GENERIC TEXT INJECTION ────────────────────────────────────────────────
 
 def insert_text_into_app(app_name: str, text: str):

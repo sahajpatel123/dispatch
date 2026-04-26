@@ -12,6 +12,7 @@ from routes.screenshot import router as screenshot_router
 from routes.history import router as history_router
 from routes.execute_raw import router as execute_raw_router
 from routes.health import router as health_router
+from routes.teleport import router as teleport_router
 
 load_dotenv()
 
@@ -30,6 +31,7 @@ app.include_router(screenshot_router)
 app.include_router(history_router)
 app.include_router(execute_raw_router)
 app.include_router(health_router)
+app.include_router(teleport_router)
 
 @app.get("/")
 async def root():

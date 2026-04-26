@@ -2,14 +2,74 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, Image, ActivityIndicator, RefreshControl,
-  KeyboardAvoidingView, Platform, StyleSheet, Dimensions
+  KeyboardAvoidingView, Platform, StyleSheet, Dimensions,
+  Animated, Pressable
 } from "react-native";
 import { useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
+import * as Haptics from 'expo-haptics';
 import { sendCommand, getScreenshot, checkHealth } from "../services/api";
 import { useDispatchStore } from "../store/useDispatchStore";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
+
+// ─── AUTHENTIC LIQUID GLASS COMPONENTS ──────────────────────────────────────
+
+const LiquidGlassButton = ({ onPress, children, style }: { onPress: () => void, children: any, style?: any }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.spring(scale, {
+      toValue: 0.94,
+      useNativeDriver: true,
+      bounciness: 12,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      bounciness: 12,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.menuButton,
+          pressed && { backgroundColor: "rgba(255,255,255,0.4)" },
+          style
+        ]}
+      >
+        <GlassContainer intensity={40} style={StyleSheet.absoluteFill} />
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+};
+
+const GlassContainer = ({ children, intensity, style }: { children?: any, intensity: number, style?: any }) => {
+  if (Platform.OS === 'ios') {
+    return (
+      <BlurView intensity={intensity} tint="light" style={style}>
+        {children}
+      </BlurView>
+    );
+  }
+  return (
+    <View style={[style, { backgroundColor: 'rgba(249, 249, 248, 0.85)' }]}>
+      {children}
+    </View>
+  );
+};
+
+// ─── MAIN SCREEN ───────────────────────────────────────────────────────────
 
 export default function MainScreen() {
   const router = useRouter();
@@ -18,6 +78,8 @@ export default function MainScreen() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"unknown" | "online" | "offline">("unknown");
   const { lastScreenshot, setScreenshot, addHistory, messages, addMessage } = useDispatchStore();
+
+  const inputScale = useRef(new Animated.Value(1)).current;
 
   const ping = useCallback(async () => {
     try {
@@ -51,6 +113,7 @@ export default function MainScreen() {
 
   const handleSend = async () => {
     if (!command.trim()) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const userCmd = command.trim();
     addMessage(userCmd, "user");
     setCommand("");
@@ -87,29 +150,37 @@ export default function MainScreen() {
 
       {/* Floating Glass Header */}
       <View style={styles.floatingHeaderContainer}>
-        <BlurView intensity={80} tint="light" style={styles.blurContainer}>
+        <GlassContainer intensity={90} style={styles.blurContainer}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.menuButton} onPress={() => router.push("/settings")}>
+            <LiquidGlassButton onPress={() => router.push("/settings")}>
               <View style={styles.menuIconContainer}>
                 <View style={styles.menuLine} />
                 <View style={[styles.menuLine, { width: 14 }]} />
               </View>
-            </TouchableOpacity>
+            </LiquidGlassButton>
             
             <View style={styles.headerTitleContainer}>
               <Text style={styles.headerTitleText}>Dispatch</Text>
-              <View style={styles.headerStatusContainer}>
-                <Text style={[styles.headerStatusIcon, status === "online" && { color: "#4ade80" }]}>
-                  {status === "online" ? "●" : "☾+"}
+              <View style={[
+                styles.headerStatusContainer,
+                status === "online" ? styles.statusOnlineBadge : styles.statusAsleepBadge
+              ]}>
+                <Text style={[
+                  styles.headerStatusIcon,
+                  status === "online" ? { color: "#166534" } : { color: "#6b7280" }
+                ]}>
+                  ●
                 </Text>
-                <Text style={[styles.headerStatusText, status === "online" && { color: "#4ade80" }]}>
+                <Text style={[
+                  styles.headerStatusText,
+                  status === "online" ? { color: "#166534" } : { color: "#6b7280" }
+                ]}>
                   {status === "online" ? "Online" : "Asleep"}
                 </Text>
               </View>
-            </View>
-            <View style={{ width: 44 }} />
+            </View>            <View style={{ width: 44 }} />
           </View>
-        </BlurView>
+        </GlassContainer>
       </View>
 
       <ScrollView
@@ -119,7 +190,7 @@ export default function MainScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={false} onRefresh={refreshScreenshot} />}
       >
-        <View style={{ height: 110 }} /> {/* Spacer for floating header */}
+        <View style={{ height: 145 }} />
 
         {/* Connection Error Message */}
         {status !== "online" && (
@@ -165,16 +236,16 @@ export default function MainScreen() {
             </View>
           </View>
         )}
-        <View style={{ height: 20 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Input Area */}
+      {/* Liquid Glass Input Area */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
-        <BlurView intensity={60} tint="light" style={styles.inputBlur}>
-          <View style={styles.inputArea}>
+        <View style={styles.inputOuterContainer}>
+          <GlassContainer intensity={60} style={styles.inputGlass}>
             <View style={styles.inputBar}>
               <TextInput
                 style={[styles.input, { paddingLeft: 16 }]}
@@ -183,6 +254,12 @@ export default function MainScreen() {
                 value={command}
                 onChangeText={setCommand}
                 multiline
+                onFocus={() => {
+                  Animated.spring(inputScale, { toValue: 1.02, useNativeDriver: true }).start();
+                }}
+                onBlur={() => {
+                  Animated.spring(inputScale, { toValue: 1, useNativeDriver: true }).start();
+                }}
               />
               
               <View style={styles.rightButtons}>
@@ -195,8 +272,8 @@ export default function MainScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </BlurView>
+          </GlassContainer>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -232,61 +309,77 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 100,
     overflow: "hidden",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
   },
   blurContainer: {
-    paddingTop: Platform.OS === "ios" ? 50 : 20,
-    paddingBottom: 10,
+    paddingTop: Platform.OS === "ios" ? 65 : 25,
+    paddingBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   menuButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.7)",
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.4)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
+    borderColor: "rgba(255,255,255,0.5)", // Rim light effect
   },
   menuIconContainer: {
     alignItems: "flex-start",
+    paddingLeft: 2,
+    zIndex: 1,
   },
   menuLine: {
     width: 18,
     height: 2,
-    backgroundColor: "#374151",
-    marginVertical: 1.5,
+    backgroundColor: "#111827",
+    marginVertical: 1.8,
     borderRadius: 1,
   },
   headerTitleContainer: {
     alignItems: "center",
+    paddingRight: 4,
   },
   headerTitleText: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#000",
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   headerStatusContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusOnlineBadge: {
+    backgroundColor: "#dcfce7", // Light green capsule
+  },
+  statusAsleepBadge: {
+    backgroundColor: "#f3f4f6", // Light gray capsule
   },
   headerStatusIcon: {
-    fontSize: 10,
-    color: "#6b7280",
-    marginRight: 3,
+    fontSize: 7,
+    marginRight: 4,
   },
   headerStatusText: {
-    fontSize: 13,
-    color: "#6b7280",
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.1,
   },
   chatList: {
     flex: 1,
@@ -335,7 +428,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 1,
@@ -368,29 +461,29 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     marginRight: 4,
   },
-  inputBlur: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
-  },
-  inputArea: {
+  inputOuterContainer: {
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === "ios" ? 40 : 20,
     paddingTop: 15,
+    backgroundColor: "transparent",
+  },
+  inputGlass: {
+    borderRadius: 35,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)", // Glass rim
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 5,
   },
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 35,
+    backgroundColor: "rgba(255,255,255,0.4)", // Liquid transparency
     paddingHorizontal: 12,
     paddingVertical: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
   },
   input: {
     flex: 1,
@@ -414,7 +507,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sendButtonDisabled: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "rgba(0,0,0,0.05)",
   },
   sendIcon: {
     color: "#FFFFFF",

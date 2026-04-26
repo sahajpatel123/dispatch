@@ -1,14 +1,27 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, Image, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import React, { useState, useRef } from "react";
+import { 
+  View, Text, TextInput, TouchableOpacity, Alert, Image, 
+  StyleSheet, ScrollView, ActivityIndicator, Pressable, 
+  Dimensions, Animated 
+} from "react-native";
+import * as Linking from 'expo-linking';
+import * as Haptics from 'expo-haptics';
 import { useDispatchStore } from "../store/useDispatchStore";
-import { checkHealth, getScreenshot } from "../services/api";
+import { checkHealth, getScreenshot, ghostClick, teleport } from "../services/api";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function SettingsScreen() {
-  const { serverUrl, secretToken, setServerUrl, setSecretToken, lastScreenshot, setScreenshot } = useDispatchStore();
+  const { serverUrl, secretToken, setServerUrl, setSecretToken, lastScreenshot, setScreenshot, addMessage } = useDispatchStore();
   const [url, setUrl] = useState(serverUrl);
   const [token, setToken] = useState(secretToken);
   const [refreshing, setRefreshing] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [teleporting, setTeleporting] = useState(false);
+
+  const rippleScale = useRef(new Animated.Value(0)).current;
+  const rippleOpacity = useRef(new Animated.Value(0.5)).current;
+  const [ripplePos, setRipplePos] = useState({ x: 0, y: 0 });
 
   const save = () => {
     setServerUrl(url.trim());
@@ -21,18 +34,59 @@ export default function SettingsScreen() {
     try {
       const targetUrl = url.trim();
       const targetToken = token.trim();
-      
-      // Automatically save first so the rest of the app uses these values
       setServerUrl(targetUrl);
       setSecretToken(targetToken);
-
       const data = await checkHealth(targetUrl, targetToken);
       Alert.alert("Connected", `Laptop is running. Uptime: ${data.uptime}`);
     } catch (e: any) {
-      Alert.alert("Failed", `Cannot reach laptop.\n\nError: ${e.message}\n\nCheck that the URL and token are correct.`);
+      Alert.alert("Failed", `Cannot reach laptop.\n\nError: ${e.message}`);
     } finally {
       setTesting(false);
     }
+  };
+
+  const handleTeleport = async () => {
+    setTeleporting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const data = await teleport();
+      if (data.type === "url" && data.content) {
+        Linking.openURL(data.content);
+        addMessage(`Teleported ${data.app} context to iPhone.`, "ai");
+      } else {
+        Alert.alert("Teleport Failed", `The active app (${data.app}) is not compatible with iPhone teleportation.`);
+      }
+    } catch (e) {
+      Alert.alert("Error", "Teleport connection failed.");
+    } finally {
+      setTeleporting(false);
+    }
+  };
+
+  const handleGhostTouch = async (evt: any) => {
+    const { locationX, locationY } = evt.nativeEvent;
+    
+    // 1. Visual Ripple Effect
+    setRipplePos({ x: locationX, y: locationY });
+    rippleScale.setValue(0);
+    rippleOpacity.setValue(0.6);
+    Animated.parallel([
+      Animated.timing(rippleScale, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(rippleOpacity, { toValue: 0, duration: 400, useNativeDriver: true })
+    ]).start();
+
+    // 2. Haptics
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    // 3. Coordinate Mapping
+    const imgWidth = SCREEN_WIDTH - 40;
+    const imgHeight = 220; 
+    const pX = (locationX / imgWidth) * 100;
+    const pY = (locationY / imgHeight) * 100;
+
+    try {
+      await ghostClick(pX, pY);
+    } catch (e) {}
   };
 
   const manualRefresh = async () => {
@@ -40,7 +94,7 @@ export default function SettingsScreen() {
     try {
       const data = await getScreenshot();
       setScreenshot(data.screenshot);
-    } catch (e: any) {
+    } catch (e) {
       Alert.alert("Error", `Could not fetch screenshot: ${e.message}`);
     } finally {
       setRefreshing(false);
@@ -49,7 +103,20 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Settings</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Settings</Text>
+        <TouchableOpacity 
+          onPress={handleTeleport} 
+          disabled={teleporting}
+          style={styles.teleportButton}
+        >
+          {teleporting ? (
+            <ActivityIndicator size="small" color="#A25945" />
+          ) : (
+            <Text style={styles.teleportIcon}>🌀</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.label}>Server URL</Text>
       <TextInput
@@ -86,10 +153,13 @@ export default function SettingsScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Live Desktop View */}
+      {/* Live Desktop View with Ghost Touch */}
       <View style={styles.screenshotSection}>
         <View style={styles.screenshotHeader}>
-          <Text style={styles.screenshotLabel}>Desktop View</Text>
+          <View>
+            <Text style={styles.screenshotLabel}>Ghost Touch View</Text>
+            <Text style={styles.screenshotSub}>Tap anywhere to click on Mac</Text>
+          </View>
           <TouchableOpacity onPress={manualRefresh} disabled={refreshing}>
             {refreshing ? (
               <ActivityIndicator size="small" color="#A25945" />
@@ -100,21 +170,34 @@ export default function SettingsScreen() {
         </View>
         
         <View style={styles.screenshotCard}>
-          {lastScreenshot ? (
-            <Image
-              source={{ uri: `data:image/jpeg;base64,${lastScreenshot}` }}
-              style={styles.screenshot}
-              resizeMode="contain"
-            />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>Tap refresh to see screen</Text>
-            </View>
-          )}
+          <Pressable onPress={handleGhostTouch}>
+            {lastScreenshot ? (
+              <View>
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${lastScreenshot}` }}
+                  style={styles.screenshot}
+                  resizeMode="stretch"
+                />
+                <Animated.View style={[
+                  styles.ripple,
+                  { 
+                    left: ripplePos.x - 20, 
+                    top: ripplePos.y - 20,
+                    opacity: rippleOpacity,
+                    transform: [{ scale: rippleScale }]
+                  }
+                ]} />
+              </View>
+            ) : (
+              <View style={styles.placeholder}>
+                <Text style={styles.placeholderText}>Tap refresh to enable Ghost Touch</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
       </View>
       
-      <View style={{ height: 40 }} />
+      <View style={{ height: 60 }} />
     </ScrollView>
   );
 }
@@ -125,12 +208,35 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9F9F8",
     padding: 20,
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 30,
+    marginTop: 20,
+  },
   title: {
     color: "#000000",
     fontSize: 24,
     fontWeight: "800",
-    marginBottom: 30,
-    marginTop: 20,
+  },
+  teleportButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  teleportIcon: {
+    fontSize: 22,
   },
   label: {
     color: "#6b7280",
@@ -190,6 +296,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
+  screenshotSub: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
+  },
   refreshText: {
     color: "#A25945",
     fontWeight: "700",
@@ -209,10 +320,18 @@ const styles = StyleSheet.create({
   },
   screenshot: {
     width: "100%",
-    height: 200,
+    height: 220,
+  },
+  ripple: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#A25945",
+    zIndex: 10,
   },
   placeholder: {
-    height: 200,
+    height: 220,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F3F4F6",

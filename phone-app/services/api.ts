@@ -74,3 +74,16 @@ export const executeRaw = async (actions: Array<{ action: string; params: object
   const res = await client.post("/execute-raw", { actions });
   return res.data;
 };
+
+export const teleport = async () => {
+  const client = getClient();
+  const res = await client.get("/teleport");
+  return res.data;
+};
+
+export const ghostClick = async (x_percent: number, y_percent: number, type: string = "left") => {
+  const client = getClient();
+  const res = await client.post("/ghost-click", { x_percent, y_percent, type });
+  return res.data;
+};
+
