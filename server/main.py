@@ -31,6 +31,11 @@ app.include_router(history_router)
 app.include_router(execute_raw_router)
 app.include_router(health_router)
 
+@app.get("/")
+async def root():
+    return {"message": "Dispatch Server is Online"}
+
+
 
 def start_tunnel() -> str:
     token = os.getenv("NGROK_TOKEN")

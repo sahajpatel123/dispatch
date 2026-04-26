@@ -8,6 +8,7 @@ export default function SettingsScreen() {
   const [url, setUrl] = useState(serverUrl);
   const [token, setToken] = useState(secretToken);
   const [refreshing, setRefreshing] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const save = () => {
     setServerUrl(url.trim());
@@ -16,11 +17,21 @@ export default function SettingsScreen() {
   };
 
   const test = async () => {
+    setTesting(true);
     try {
-      const data = await checkHealth();
+      const targetUrl = url.trim();
+      const targetToken = token.trim();
+      
+      // Automatically save first so the rest of the app uses these values
+      setServerUrl(targetUrl);
+      setSecretToken(targetToken);
+
+      const data = await checkHealth(targetUrl, targetToken);
       Alert.alert("Connected", `Laptop is running. Uptime: ${data.uptime}`);
-    } catch {
-      Alert.alert("Failed", "Cannot reach laptop. Check URL and token.");
+    } catch (e: any) {
+      Alert.alert("Failed", `Cannot reach laptop.\n\nError: ${e.message}\n\nCheck that the URL and token are correct.`);
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -29,8 +40,8 @@ export default function SettingsScreen() {
     try {
       const data = await getScreenshot();
       setScreenshot(data.screenshot);
-    } catch (e) {
-      Alert.alert("Error", "Could not fetch screenshot.");
+    } catch (e: any) {
+      Alert.alert("Error", `Could not fetch screenshot: ${e.message}`);
     } finally {
       setRefreshing(false);
     }
@@ -45,6 +56,7 @@ export default function SettingsScreen() {
         value={url}
         onChangeText={setUrl}
         autoCapitalize="none"
+        autoCorrect={false}
         style={styles.input}
         placeholder="https://abc123.ngrok.io"
         placeholderTextColor="#9ca3af"
@@ -55,6 +67,8 @@ export default function SettingsScreen() {
         value={token}
         onChangeText={setToken}
         secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
         style={styles.input}
         placeholder="your_secret_token"
         placeholderTextColor="#9ca3af"
@@ -64,8 +78,12 @@ export default function SettingsScreen() {
         <Text style={styles.saveButtonText}>Save</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={test} style={styles.testButton}>
-        <Text style={styles.testButtonText}>Test Connection</Text>
+      <TouchableOpacity onPress={test} disabled={testing} style={styles.testButton}>
+        {testing ? (
+          <ActivityIndicator size="small" color="#000000" />
+        ) : (
+          <Text style={styles.testButtonText}>Test Connection</Text>
+        )}
       </TouchableOpacity>
 
       {/* Live Desktop View */}
@@ -150,6 +168,8 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     borderWidth: 1,
     borderColor: "#E5E7EB",
+    height: 55,
+    justifyContent: "center",
   },
   testButtonText: {
     color: "#000000",

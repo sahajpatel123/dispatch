@@ -11,6 +11,7 @@ from core.action_primitives import (
     take_screenshot, take_screenshot_region, get_screen_resolution,
     run_shell, open_terminal, run_in_terminal, run_in_any_terminal,
     insert_text_into_app,
+    smart_search, click_element,
     focus_gemini_terminal, send_to_gemini,
     sleep, get_running_processes, kill_process, lock_screen, get_battery_status
 )
@@ -62,6 +63,8 @@ ACTION_MAP = {
     "run_in_any_terminal": run_in_any_terminal,
     # Generic Injection
     "insert_text_into_app": insert_text_into_app,
+    "smart_search": smart_search,
+    "click_element": click_element,
     # Gemini CLI
     "focus_gemini_terminal": focus_gemini_terminal,
     "send_to_gemini": send_to_gemini,

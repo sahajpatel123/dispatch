@@ -246,11 +246,70 @@ def run_in_any_terminal(command: str):
     run_applescript(script)
 
 
+# ─── SMART INTERACTION ────────────────────────────────────────────────────
+
+def smart_search(app_name: str, query: str):
+    """
+    Intelligent search that knows the specific shortcuts for every app.
+    """
+    focus_window(app_name)
+    app = app_name.lower()
+    
+    # 1. Trigger the search/address bar shortcut
+    if any(x in app for x in ["safari", "chrome", "arc", "browser"]):
+        key_press("cmd+l")
+    elif any(x in app for x in ["cursor", "vscode", "code"]):
+        key_press("cmd+l")
+    elif "finder" in app:
+        key_press("cmd+f")
+    elif "notes" in app:
+        key_press("cmd+alt+f")
+    elif "spotify" in app:
+        key_press("cmd+l")
+    
+    time.sleep(0.4)
+    # 2. Inject the query and hit enter
+    inject_text_to_focused_element(query)
+    time.sleep(0.2)
+    key_press("enter")
+
+
+def click_element(app_name: str, element_name: str):
+    """Clicks a UI element by its name using Accessibility API"""
+    script = f'''
+    tell application "System Events"
+        tell process "{app_name}"
+            set frontmost to true
+            try
+                click (first element of (entire contents of window 1) whose name contains "{element_name}")
+                return "SUCCESS"
+            on error
+                return "NOT_FOUND"
+            end try
+        end tell
+    end tell
+    '''
+    run_applescript(script)
+
+
 # ─── GENERIC TEXT INJECTION ────────────────────────────────────────────────
 
 def insert_text_into_app(app_name: str, text: str):
+    """
+    Improved generic injection:
+    1. Focuses the target app.
+    2. If it's a known app (Cursor, Safari, etc.), triggers the 'Focus Input' shortcut.
+    3. Injects the text string directly.
+    """
     focus_window(app_name)
-    time.sleep(0.5)
+    app = app_name.lower()
+    
+    # Proactively focus the input area for common apps
+    if any(x in app for x in ["cursor", "vscode", "safari", "chrome", "arc", "browser", "spotify"]):
+        # Hardware key code for Cmd+L (Focus Address/Search/Chat)
+        run_applescript('tell application "System Events" to key code 37 using command down')
+        time.sleep(0.4)
+    
     inject_text_to_focused_element(text)
 
 
