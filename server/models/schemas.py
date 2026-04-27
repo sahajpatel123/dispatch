@@ -32,3 +32,13 @@ class CommandResponse(BaseModel):
     message: Optional[str] = None
     screenshot: Optional[str] = None
     error: Optional[str] = None
+
+class GoalRequest(BaseModel):
+    goal: str
+
+class GoalResponse(BaseModel):
+    success: bool
+    iterations: int
+    summary: str
+    actions_executed: List[ActionLog]
+    screenshot: Optional[str] = None

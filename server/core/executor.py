@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 from core.action_primitives import (
@@ -11,9 +12,11 @@ from core.action_primitives import (
     take_screenshot, take_screenshot_region, get_screen_resolution,
     run_shell, open_terminal, run_in_terminal, run_in_any_terminal,
     insert_text_into_app,
+    browser_control,
     smart_search, click_element,
     focus_gemini_terminal, send_to_gemini,
-    sleep, get_running_processes, kill_process, lock_screen, get_battery_status
+    sleep, get_running_processes, kill_process, lock_screen, get_battery_status,
+    search_memory
 )
 
 LOG_PATH = Path("logs/action_history.json")
@@ -63,6 +66,7 @@ ACTION_MAP = {
     "run_in_any_terminal": run_in_any_terminal,
     # Generic Injection
     "insert_text_into_app": insert_text_into_app,
+    "browser_control": browser_control,
     "smart_search": smart_search,
     "click_element": click_element,
     # Gemini CLI
@@ -74,6 +78,7 @@ ACTION_MAP = {
     "kill_process": kill_process,
     "lock_screen": lock_screen,
     "get_battery_status": get_battery_status,
+    "search_memory": search_memory,
 }
 
 

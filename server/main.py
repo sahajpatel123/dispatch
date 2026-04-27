@@ -1,10 +1,12 @@
 import os
 import uvicorn
 import qrcode
+import multiprocessing
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pyngrok import ngrok
+from core.memory import run_memory_loop
 
 from routes.command import router as command_router
 from routes.state import router as state_router
@@ -15,6 +17,10 @@ from routes.health import router as health_router
 from routes.teleport import router as teleport_router
 
 load_dotenv()
+
+# Disable proxies for local ngrok API calls
+os.environ['NO_PROXY'] = 'localhost,127.0.0.1,marmalade-coerce-eternal.ngrok-free.dev'
+os.environ['no_proxy'] = 'localhost,127.0.0.1,marmalade-coerce-eternal.ngrok-free.dev'
 
 app = FastAPI(title="Personal Dispatch", version="1.0.0")
 
@@ -62,6 +68,10 @@ def print_qr(url: str):
 
 if __name__ == "__main__":
     print("\n=== Personal Dispatch Starting ===\n")
+
+    # Start Memory Daemon in background
+    memory_process = multiprocessing.Process(target=run_memory_loop, daemon=True)
+    memory_process.start()
 
     public_url = start_tunnel()
     if public_url:

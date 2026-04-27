@@ -246,6 +246,43 @@ def run_in_any_terminal(command: str):
     run_applescript(script)
 
 
+def browser_control(app_name: str, action: str):
+    """
+    Native browser control for Safari and Chrome.
+    Actions: 'new_tab', 'close_tab', 'go_back', 'go_forward', 'reload'
+    """
+    app = app_name.lower()
+    focus_window(app_name)
+    
+    if "safari" in app:
+        if action == "new_tab":
+            script = 'tell application "Safari" to tell front window to make new tab'
+        elif action == "close_tab":
+            script = 'tell application "Safari" to tell front window to close current tab'
+        elif action == "go_back":
+            script = 'tell application "Safari" to tell front window to tell current tab to go back'
+        elif action == "go_forward":
+            script = 'tell application "Safari" to tell front window to tell current tab to go forward'
+        elif action == "reload":
+            script = 'tell application "Safari" to tell front window to tell current tab to do JavaScript "location.reload()"'
+        else: return
+        run_applescript(script)
+        
+    elif "chrome" in app or "google chrome" in app:
+        if action == "new_tab":
+            script = 'tell application "Google Chrome" to tell front window to make new tab'
+        elif action == "close_tab":
+            script = 'tell application "Google Chrome" to tell front window to close active tab'
+        elif action == "go_back":
+            script = 'tell application "Google Chrome" to tell front window to tell active tab to go back'
+        elif action == "go_forward":
+            script = 'tell application "Google Chrome" to tell front window to tell active tab to go forward'
+        elif action == "reload":
+            script = 'tell application "Google Chrome" to tell front window to tell active tab to reload'
+        else: return
+        run_applescript(script)
+
+
 # ─── SMART INTERACTION ────────────────────────────────────────────────────
 
 def smart_search(app_name: str, query: str):
@@ -413,3 +450,17 @@ def get_battery_status() -> dict:
     if battery:
         return {"percent": battery.percent, "plugged": battery.power_plugged}
     return {"percent": "unknown", "plugged": "unknown"}
+
+def search_memory(query: str) -> str:
+    """Queries the local semantic memory for past screen content"""
+    from core.memory import MemoryStore
+    store = MemoryStore()
+    results = store.search(query)
+    if not results:
+        return "No matching memories found."
+    
+    formatted = []
+    for content, context, ts in results:
+        formatted.append(f"[{ts}] {context}\nContent: {content[:200]}...")
+    
+    return "\n---\n".join(formatted)

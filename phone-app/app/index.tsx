@@ -69,6 +69,39 @@ const GlassContainer = ({ children, intensity, style }: { children?: any, intens
   );
 };
 
+const HeaderContent = ({ router, status }: { router: any, status: string }) => (
+  <View style={styles.header}>
+    <LiquidGlassButton onPress={() => router.push("/settings")}>
+      <View style={styles.menuIconContainer}>
+        <View style={styles.menuLine} />
+        <View style={[styles.menuLine, { width: 14 }]} />
+      </View>
+    </LiquidGlassButton>
+    
+    <View style={styles.headerTitleContainer}>
+      <Text style={styles.headerTitleText}>Dispatch</Text>
+      <View style={[
+        styles.headerStatusContainer,
+        status === "online" ? styles.statusOnlineBadge : styles.statusAsleepBadge
+      ]}>
+        <Text style={[
+          styles.headerStatusIcon,
+          status === "online" ? { color: "#166534" } : { color: "#6b7280" }
+        ]}>
+          ●
+        </Text>
+        <Text style={[
+          styles.headerStatusText,
+          status === "online" ? { color: "#166534" } : { color: "#6b7280" }
+        ]}>
+          {status === "online" ? "Online" : "Asleep"}
+        </Text>
+      </View>
+    </View>
+    <View style={{ width: 44 }} />
+  </View>
+);
+
 // ─── MAIN SCREEN ───────────────────────────────────────────────────────────
 
 export default function MainScreen() {
@@ -151,35 +184,7 @@ export default function MainScreen() {
       {/* Floating Glass Header */}
       <View style={styles.floatingHeaderContainer}>
         <GlassContainer intensity={90} style={styles.blurContainer}>
-          <View style={styles.header}>
-            <LiquidGlassButton onPress={() => router.push("/settings")}>
-              <View style={styles.menuIconContainer}>
-                <View style={styles.menuLine} />
-                <View style={[styles.menuLine, { width: 14 }]} />
-              </View>
-            </LiquidGlassButton>
-            
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitleText}>Dispatch</Text>
-              <View style={[
-                styles.headerStatusContainer,
-                status === "online" ? styles.statusOnlineBadge : styles.statusAsleepBadge
-              ]}>
-                <Text style={[
-                  styles.headerStatusIcon,
-                  status === "online" ? { color: "#166534" } : { color: "#6b7280" }
-                ]}>
-                  ●
-                </Text>
-                <Text style={[
-                  styles.headerStatusText,
-                  status === "online" ? { color: "#166534" } : { color: "#6b7280" }
-                ]}>
-                  {status === "online" ? "Online" : "Asleep"}
-                </Text>
-              </View>
-            </View>            <View style={{ width: 44 }} />
-          </View>
+          <HeaderContent router={router} status={status} />
         </GlassContainer>
       </View>
 
@@ -239,13 +244,13 @@ export default function MainScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Liquid Glass Input Area */}
+      {/* Pure Floating Prompt Box - No background bar, No blur */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
         <View style={styles.inputOuterContainer}>
-          <GlassContainer intensity={60} style={styles.inputGlass}>
+          <Animated.View style={[styles.inputFloatingIsland, { transform: [{ scale: inputScale }] }]}>
             <View style={styles.inputBar}>
               <TextInput
                 style={[styles.input, { paddingLeft: 16 }]}
@@ -272,7 +277,7 @@ export default function MainScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </GlassContainer>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -334,7 +339,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.5)", // Rim light effect
+    borderColor: "rgba(255,255,255,0.5)",
   },
   menuIconContainer: {
     alignItems: "flex-start",
@@ -367,10 +372,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusOnlineBadge: {
-    backgroundColor: "#dcfce7", // Light green capsule
+    backgroundColor: "#dcfce7",
   },
   statusAsleepBadge: {
-    backgroundColor: "#f3f4f6", // Light gray capsule
+    backgroundColor: "#f3f4f6",
   },
   headerStatusIcon: {
     fontSize: 7,
@@ -465,23 +470,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === "ios" ? 40 : 20,
     paddingTop: 15,
-    backgroundColor: "transparent",
+    backgroundColor: "transparent", // Ensures the background is fully transparent
   },
-  inputGlass: {
+  inputFloatingIsland: {
     borderRadius: 35,
     overflow: "hidden",
+    backgroundColor: "#FFFFFF", // Solid white for the floating effect
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.6)", // Glass rim
+    borderColor: "rgba(0,0,0,0.05)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
   },
   inputBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.4)", // Liquid transparency
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -507,7 +512,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sendButtonDisabled: {
-    backgroundColor: "rgba(0,0,0,0.05)",
+    backgroundColor: "#F3F4F6",
   },
   sendIcon: {
     color: "#FFFFFF",
